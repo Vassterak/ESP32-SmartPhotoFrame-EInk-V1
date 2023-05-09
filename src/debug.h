@@ -1,0 +1,7 @@
+class Debug
+{
+private:
+    Debug () {};
+public:
+    static void printLine(const char *input);
+};
