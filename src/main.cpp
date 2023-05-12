@@ -19,98 +19,14 @@
 
 //Variables and instances
 SPIClass hspi(HSPI);
-
 uint8_t numberOfFiles = 0;
+#define MOSI_PULL_BOOT_DOWN 27
 
 // bitmap drawing using buffered graphics, e.g. for small bitmaps or for GxEPD2_154c
 // draws BMP bitmap according to set orientation
 // partial_update selects refresh mode (not effective for GxEPD2_154c)
 // overwrite = true does not clear buffer before drawing, use only if buffer is full height
 void drawBitmapFromSD_Buffered(const char *filename, int16_t x, int16_t y, bool with_color = true, bool partial_update = false);
-
-//Text demo printing
-void demoPrint()
-{
-    Debug::printLine("Start printing");
-
-    const char testText[] = "Text 1 test sdfsffsd";
-    display.setFullWindow();
-    display.setRotation(1); // number 0 - 3, each rotate by 90°
-
-    display.setFont(&FreeMonoBold12pt7b);
-    display.firstPage();
-    do
-    {
-        display.fillScreen(GxEPD_WHITE);
-        display.setTextColor(GxEPD_GREEN);
-        display.setCursor(0,20);
-        display.print(testText);
-
-        display.setTextColor(GxEPD_RED);
-        display.setCursor(0,40);
-        display.print(testText);
-
-        display.setTextColor(GxEPD_BLUE);
-        display.setCursor(0,60);
-        display.print(testText);
-
-        display.setTextColor(GxEPD_GREEN);
-        display.setCursor(0,80);
-        display.print(testText);
-
-        display.setTextColor(GxEPD_YELLOW);
-        display.setCursor(0,100);
-        display.print(testText);
-    } while (display.nextPage());
-}
-
-//Image bitemap printing
-void demoPrint2()
-{
-    display.firstPage();
-    do
-    {
-        display.fillScreen(GxEPD_WHITE);
-        //display.drawBitmap(100, 100, Bitmap400x300_1, 400, 300, GxEPD_BLACK); //monochrome only
-        //display.drawInvertedBitmap(100, 100, Bitmap400x300_1, 400, 300, GxEPD_BLACK);
-
-
-    } while (display.nextPage());
-}
-
-void demoPrint3()
-{
-  display.setRotation(0);
-  display.firstPage();
-  do
-  {
-    display.drawRect(display.width() / 8, display.height() / 8, display.width() * 3 / 4, display.height() * 3 / 4, GxEPD_BLACK);
-    display.drawLine(display.width() / 8, display.height() / 8, display.width() * 7 / 8, display.height() * 7 / 8, GxEPD_BLACK);
-    display.drawLine(display.width() / 8, display.height() * 7 / 8, display.width() *7 / 8, display.height() / 8, GxEPD_BLACK);
-    display.drawCircle(display.width() / 2, display.height() / 2, display.height() / 4, GxEPD_BLACK);
-    display.drawPixel(display.width() / 4, display.height() / 2 , GxEPD_BLACK);
-    display.drawPixel(display.width() * 3 / 4, display.height() / 2 , GxEPD_BLACK);
-  }
-  while (display.nextPage());
-}
-
-void demoPrint4()
-{
-  display.setRotation(0);
-  uint16_t h = display.height() / 7;
-  display.firstPage();
-  do
-  {
-    display.fillRect(0, 0, display.width(), h, GxEPD_BLACK);
-    display.fillRect(0, h, display.width(), h, GxEPD_WHITE);
-    display.fillRect(0, 2 * h, display.width(), h, GxEPD_GREEN);
-    display.fillRect(0, 3 * h, display.width(), h, GxEPD_BLUE);
-    display.fillRect(0, 4 * h, display.width(), h, GxEPD_RED);
-    display.fillRect(0, 5 * h, display.width(), h, GxEPD_YELLOW);
-    display.fillRect(0, 6 * h, display.width(), h, GxEPD_ORANGE);
-  }
-  while (display.nextPage());
-}
 
 void displayClenup()
 {
@@ -171,7 +87,7 @@ void listFiles()
     Serial.print("failed to open root directory");
 }
 
-void drawBitmapsBuffered()
+void drawBitmap()
 {
   int16_t x = (display.width() - 200) / 2;
   int16_t y = (display.height() - 200) / 2;
@@ -190,13 +106,14 @@ void drawBitmapsBuffered()
 
 void setup()
 {
-    pinMode(27, OUTPUT);
-    digitalWrite(27, LOW);
+    //need to do this because during boot pin need to be LOW, but during SPI communication pin need to be HIGH
+    pinMode(MOSI_PULL_BOOT_DOWN, OUTPUT);
+    digitalWrite(MOSI_PULL_BOOT_DOWN, LOW);
     Serial.begin(115200);
     display.init(115200, true, 2, false); //Default values from example code, not much documentation to wrap my head around it.
     Debug::printLine("Display initialised");
     delay(1000);
-    digitalWrite(27, HIGH);
+    digitalWrite(MOSI_PULL_BOOT_DOWN, HIGH);
     delay(1000);
     //SPI communication with sd card, setup
     hspi.begin(14, 12, 13, 15);
@@ -205,7 +122,7 @@ void setup()
     listFiles();
     displayClenup();
     display.hibernate();
-    Debug::printLine("Finished writing");    
+    Debug::printLine("Finished setup");    
 }
 
 void loop()
@@ -215,10 +132,8 @@ void loop()
 
 //static const uint16_t input_buffer_pixels = 20; // may affect performance
 static const uint16_t input_buffer_pixels = 800; // may affect performance
-
 static const uint16_t max_row_width = 1448; // for up to 6" display 1448x1072
 static const uint16_t max_palette_pixels = 256; // for depth <= 8
-
 uint8_t input_buffer[3 * input_buffer_pixels]; // up to depth 24
 uint8_t output_row_mono_buffer[max_row_width / 8]; // buffer for at least one row of b/w bits
 uint8_t output_row_color_buffer[max_row_width / 8]; // buffer for at least one row of color bits
