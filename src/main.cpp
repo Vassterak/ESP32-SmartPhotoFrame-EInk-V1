@@ -102,7 +102,6 @@ void listFiles()
 void drawBitmap()
 {
   display.setRotation(0);
-
   // int16_t x = (display.width() - 200) / 2;
   // int16_t y = (display.height() - 200) / 2;
   // drawBitmapFromSD_Buffered("borka24bit.bmp", 0,0, true, false);
@@ -113,7 +112,6 @@ void drawBitmap()
   currentIndex++;
   Debug::print("Current index: ");
   Serial.println(currentIndex);
-
   if (currentIndex == numberOfFiles)
   {
     currentIndex = 0;
@@ -184,6 +182,24 @@ void setup()
 void loop()
 {
   checkButton();
+}
+
+uint8_t checkCorrectRotation(uint32_t width, uint32_t height)
+{
+  //image is flipped 
+  if (width <= 480 && height <= 800 && height > 480)
+  {
+    Debug::printLine("Loaded image is flipped");
+    return 1;
+  }
+
+  if (width > 800 || height > 480)
+  {
+    Debug::printLine("Wrong Resolution");
+    return 10;
+  }
+
+  return 0;
 }
 
 //static const uint16_t input_buffer_pixels = 20; // may affect performance
@@ -266,6 +282,16 @@ void drawBitmapFromSD_Buffered(String filename, int16_t x, int16_t y, bool with_
       Serial.print(width);
       Serial.print('x');
       Serial.println(height);
+
+      //Resultion check and if image is flipped rotate it
+      uint8_t setRotation = checkCorrectRotation(width, height);
+      if (setRotation == 10)
+        return;
+      if (setRotation == 1)
+      {
+        display.setRotation(1);
+      }
+
       // BMP rows are padded (if needed) to 4-byte boundary
       uint32_t rowSize = (width * depth / 8 + 3) & ~3;
       if (depth < 8) rowSize = ((width * depth + 8 - depth) / 8 + 3) & ~3;
