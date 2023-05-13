@@ -174,7 +174,9 @@ void setup()
     listFiles();
     Debug::print("Number of pictures: ");
     Serial.println(numberOfFiles);
-    displayClenup();
+    Debug::printLine("Drawing first picture");
+    //displayClenup();
+    drawBitmap();
     display.hibernate();
     Debug::printLine("Finished setup");    
 }
@@ -291,6 +293,14 @@ void drawBitmapFromSD_Buffered(String filename, int16_t x, int16_t y, bool with_
       {
         display.setRotation(1);
       }
+
+      //Center the image, so it will be printed in the center
+      x = (display.width() / 2) - (width / 2);
+      y = (display.height() / 2) - (height / 2);
+      Debug::print("Coordinaties x: ");
+      Serial.println(x);
+      Debug::print("Coordinaties y: ");
+      Serial.println(y);
 
       // BMP rows are padded (if needed) to 4-byte boundary
       uint32_t rowSize = (width * depth / 8 + 3) & ~3;
