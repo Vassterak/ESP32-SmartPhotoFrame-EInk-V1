@@ -20,13 +20,23 @@
 //Variables and instances
 SPIClass hspi(HSPI);
 uint8_t numberOfFiles = 0;
+uint8_t currentIndex = 0;
+const String fileTypeName = ".bmp";
+bool isBitMapDrawing = false;
+
+//Buttons
 #define MOSI_PULL_BOOT_DOWN 27
+#define BUTTON_PIN 26
+bool buttonWasPressed = false;
+unsigned long buttonStateChangeTime = 0; // Debounce timer
+const unsigned long debounceTime = 20;
+unsigned long currentTime = 0;
 
 // bitmap drawing using buffered graphics, e.g. for small bitmaps or for GxEPD2_154c
 // draws BMP bitmap according to set orientation
 // partial_update selects refresh mode (not effective for GxEPD2_154c)
 // overwrite = true does not clear buffer before drawing, use only if buffer is full height
-void drawBitmapFromSD_Buffered(const char *filename, int16_t x, int16_t y, bool with_color = true, bool partial_update = false);
+void drawBitmapFromSD_Buffered(String filename, int16_t x, int16_t y, bool with_color = true, bool partial_update = false);
 
 void displayClenup()
 {
@@ -77,8 +87,10 @@ void listFiles()
         Serial.print(" bytes");
         Debug::printLine("");
         file = root.openNextFile();
+        numberOfFiles++; //read all files available 
       }
       Debug::printLine("no more files...");
+      numberOfFiles--;
     }
     else
     Serial.print("Not a directory");
@@ -89,23 +101,65 @@ void listFiles()
 
 void drawBitmap()
 {
-  int16_t x = (display.width() - 200) / 2;
-  int16_t y = (display.height() - 200) / 2;
+  display.setRotation(0);
+
+  // int16_t x = (display.width() - 200) / 2;
+  // int16_t y = (display.height() - 200) / 2;
   // drawBitmapFromSD_Buffered("borka24bit.bmp", 0,0, true, false);
   // delay(5000);
-  display.setRotation(0);
-  drawBitmapFromSD_Buffered("nature.bmp", 0, 0, true, false);
+  //Memory allocation is not good practise on MCU but ES32 is powerfull enought, but for production code, do not use it...
+  String imageName = String(currentIndex) + fileTypeName;
+  drawBitmapFromSD_Buffered(imageName, 0, 0, true, false);
+  currentIndex++;
+  Debug::print("Current index: ");
+  Serial.println(currentIndex);
+
+  if (currentIndex == numberOfFiles)
+  {
+    currentIndex = 0;
+  }
   delay(5000);
-  display.setRotation(0);
-  drawBitmapFromSD_Buffered("patAmat.bmp", 0, 0, true, false);
-  delay(5000);
-  display.setRotation(0);
-  drawBitmapFromSD_Buffered("Vag24bit.bmp", 0, 0, true, false);
-  delay(5000);
+  isBitMapDrawing = false;
+}
+
+//Button that allows image switches 
+void checkButton()
+{
+  if (isBitMapDrawing)
+    return;
+  
+  else
+  {
+    currentTime = millis();
+    bool buttonIsPressed = digitalRead(BUTTON_PIN) == LOW;
+    // Check for button state change and do debounce, is required for this fast MCU
+    if (buttonIsPressed != buttonWasPressed && (currentTime  -  buttonStateChangeTime > debounceTime))
+    {
+      buttonWasPressed = buttonIsPressed;
+      buttonStateChangeTime = currentTime;
+
+      // Button was just pressed
+      if (buttonWasPressed)
+      {
+        isBitMapDrawing = true;
+        Debug::printLine("Button is pressed");
+        drawBitmap();
+      }
+
+      // Button was just released
+      else
+      {
+        Debug::printLine("Button is released");
+      }
+    }
+  }
 }
 
 void setup()
 {
+    //Button to switch images
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+
     //need to do this because during boot pin need to be LOW, but during SPI communication pin need to be HIGH
     pinMode(MOSI_PULL_BOOT_DOWN, OUTPUT);
     digitalWrite(MOSI_PULL_BOOT_DOWN, LOW);
@@ -120,6 +174,8 @@ void setup()
     delay(5000);
     sdCardSetup();
     listFiles();
+    Debug::print("Number of pictures: ");
+    Serial.println(numberOfFiles);
     displayClenup();
     display.hibernate();
     Debug::printLine("Finished setup");    
@@ -127,7 +183,7 @@ void setup()
 
 void loop()
 {
-  
+  checkButton();
 }
 
 //static const uint16_t input_buffer_pixels = 20; // may affect performance
@@ -161,7 +217,7 @@ uint32_t read32(File& f)
   return result;
 }
 
-void drawBitmapFromSD_Buffered(const char *filename, int16_t x, int16_t y, bool with_color, bool partial_update)
+void drawBitmapFromSD_Buffered(String filename, int16_t x, int16_t y, bool with_color, bool partial_update)
 {
   File file;
   bool valid = false; // valid format to be handled
@@ -177,7 +233,7 @@ void drawBitmapFromSD_Buffered(const char *filename, int16_t x, int16_t y, bool 
   file = SD.open(String("/") + filename, FILE_READ);
   if (!file)
   {
-    Serial.print("File not found");
+    Serial.println("File not found");
     return;
   }
 #else
