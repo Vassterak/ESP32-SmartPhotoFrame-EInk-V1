@@ -5,6 +5,7 @@
 #include "FS.h"
 #include "SD.h"
 #include "SPI.h"
+#include "EEPROM.h"
 #endif
 
 #define SD_CS 15  // adapted to my wiring
@@ -23,6 +24,8 @@ uint8_t numberOfFiles = 0;
 uint8_t currentIndex = 0;
 const String fileTypeName = ".bmp";
 bool isBitMapDrawing = false;
+const int dataAddressEEPROM = 0;
+#define EEPROM_SIZE 1 //1 byte
 
 //Buttons
 #define MOSI_PULL_BOOT_DOWN 27
@@ -87,7 +90,7 @@ void listFiles()
         Serial.print(" bytes");
         Debug::printLine("");
         file = root.openNextFile();
-        numberOfFiles++; //read all files available 
+        numberOfFiles++; //read all files available
       }
       Debug::printLine("no more files...");
       numberOfFiles--;
@@ -116,7 +119,9 @@ void drawBitmap()
   {
     currentIndex = 0;
   }
-  delay(5000);
+  EEPROM.write(dataAddressEEPROM, currentIndex);
+  EEPROM.commit();
+  delay(2000);
   isBitMapDrawing = false;
 }
 
@@ -155,9 +160,11 @@ void checkButton()
 
 void setup()
 {
+    // initialize EEPROM with predefined size
+    EEPROM.begin(EEPROM_SIZE);
+
     //Button to switch images
     pinMode(BUTTON_PIN, INPUT_PULLUP);
-
     //need to do this because during boot pin need to be LOW, but during SPI communication pin need to be HIGH
     pinMode(MOSI_PULL_BOOT_DOWN, OUTPUT);
     digitalWrite(MOSI_PULL_BOOT_DOWN, LOW);
@@ -176,6 +183,9 @@ void setup()
     Serial.println(numberOfFiles);
     Debug::printLine("Drawing first picture");
     //displayClenup();
+    currentIndex = EEPROM.read(dataAddressEEPROM); //Read data from eeprom about last image index
+    Serial.print("Current index is: ");
+    Serial.println(currentIndex);
     drawBitmap();
     display.hibernate();
     Debug::printLine("Finished setup");    
@@ -251,7 +261,9 @@ void drawBitmapFromSD_Buffered(String filename, int16_t x, int16_t y, bool with_
   file = SD.open(String("/") + filename, FILE_READ);
   if (!file)
   {
-    Serial.println("File not found");
+    Serial.println("File not found, EEPROM reset initialised");
+    EEPROM.write(dataAddressEEPROM, 0); //reset the index if file is not found
+    EEPROM.commit();
     return;
   }
 #else
